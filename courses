@@ -1,0 +1,112 @@
+#!/usr/bin/python3
+
+import getpass, sys, re, requests
+
+
+HELP = """Use this to figure out what courses your fellow OCFers are taking!
+
+Usage: 
+    ./courses add x y z -- adds you to courses x, y, and z
+    ./courses rm x y z -- removes you from courses x, y, and z
+    ./courses course x y z -- shows all the users in courses x, y, and z
+    ./courses user x y z -- shows all the courses that users x, y, and z are taking"""
+
+
+def main():
+    if len(sys.argv) < 2:
+        print('Too few arguments! Try ./courses help')
+        return
+    if len(sys.argv) == 2 and sys.argv[1] == 'help':
+        print(HELP)
+        exit(0) 
+    action, args = sys.argv[1], sys.argv[2:]
+    
+    if action == 'add':
+        addcourses(args)
+    elif action == 'rm':
+        rmcourses(args)
+    elif action == 'course':
+        listusers(args)
+    elif action == 'user':
+        listcourses(args)
+    else:
+        print('The action is invalid. Try ./courses help')
+
+def addcourses(args):
+    for c in args:
+        if not validate_course(c):
+            print(str(c) + ' is not a valid course!')
+        else:
+            payload = {'uname':getpass.getuser(), 'course':c.upper()}
+            r = requests.post('http://sarin.ocf.berkeley.edu:5000/addcourse', params=payload)
+            if r.status_code == 200:
+                print('Course ' + str(c) + ' added successfully!')
+            else:
+                print('An error occurred with course ', str(c))
+
+def rmcourses(args):
+    for c in args:
+        if not validate_course(c):
+            print(str(c) + ' is not a valid course!')
+        else:
+            payload = {'uname':getpass.getuser(), 'course':c.upper()}
+            r = requests.post('http://sarin.ocf.berkeley.edu:5000/removecourse', params=payload)
+            if r.status_code == 200:
+                print('Course ' + str(c) + ' removed successfully!')
+            else:
+                print('An error occurred with course ' + str(c))
+
+def listusers(args):
+    for c in args:
+        if not validate_course(c):
+            print(str(c) + ' is not a valid course!')
+        else:
+            payload = {'course':c.upper()}
+            r = requests.get('http://sarin.ocf.berkeley.edu:5000/listpeople', params=payload)
+            if r.status_code == 200:
+                users = [x['username'] for x in r.json()]
+                print('Users in ' + str(c) + ': ')
+                for x in r.json():
+                    print(x['username'], end="  ")
+                print('\n')
+            else:
+                print('An error occurred with course ' + str(c))
+
+def listcourses(args):
+    for u in args:
+        if not validate_username(u):
+            print(str(u) + ' is not a valid username!')
+        else:
+            payload = {'uname': u.lower()}
+            r = requests.get('http://sarin.ocf.berkeley.edu:5000/listcourses', params=payload)
+            if r.status_code == 200:
+                print('Courses user ' + str(u) + ' is taking: ')
+                for x in r.json(): 
+                    print(x['course'], end="  ")
+                print('\n')
+            else:
+                print('An error occurred with user ' + str(u))
+
+def validate_course(c):
+    if not c.isalnum():
+        return False
+    
+    parts = re.split('(\d+)', c)
+
+    if len(parts) != 3:
+        return False
+
+    dept, num, let = parts
+
+    if len(dept) > 7 or len(num) > 3 or len(let) > 2:
+        return False
+
+    return True
+
+def validate_username(u):
+    if not u.isalnum() or len(u) > 32:
+        return False
+    return True
+
+if __name__ == "__main__":
+    main()
